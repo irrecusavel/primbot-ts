@@ -18,7 +18,7 @@ import {
     ComponentsButton,
     ComponentsModal,
     ComponentsSelect,
-} from "../types/CommandType";
+} from "../types/CommandsType";
 import { EventTypeStructs } from "../types/EventsType";
 
 dotenv.config();

@@ -1,5 +1,5 @@
 import { ApplicationCommandType } from "discord.js";
-import { Command } from "../../types/CommandType";
+import { Command } from "../../types/CommandsType";
 
 export default new Command({
     name: "ping",
