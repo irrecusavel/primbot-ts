@@ -9,7 +9,7 @@ export default new Command({
     run({ interaction, client }) {
         const embed = new EmbedBuilder()
         .setColor("#bc3bcc")
-        .setAuthor({ name: "Fxsh Ticket's", iconURL: "https://media.discordapp.net/attachments/1110495236716773447/1164986107822346241/1116833686013362186.png?ex=66df375c&is=66dde5dc&hm=5d805dee4ac741b5bd41279d0cead74c9120d4755e931a7f78a5bc71283662fb&" })
+        .setAuthor({ name: "Fxsh Ticket's", iconURL: "https://i.imgur.com/qDBAsFb.png" })
         .setTitle("Bem-vindo(a) ao Sistema de Ticket's da Fxsh")
         .setThumbnail(interaction.guild?.iconURL() ?? null)
         .setDescription("Para abrir um ticket, escolha abaixo a categoria que melhor se adequa à sua questão:")
