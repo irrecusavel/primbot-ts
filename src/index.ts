@@ -1,6 +1,5 @@
 import { BotClient } from './structure/BotClient';
 export * from 'colors';
-import configColors from './configColors.json'
 import { EmbedBuilder, WebhookClient } from "discord.js";
 import { inspect } from "util";
 
@@ -109,6 +108,5 @@ process.on("warning", (warn) => {
 client.start();
 
 export { 
-    client,
-    configColors
+    client
 };
