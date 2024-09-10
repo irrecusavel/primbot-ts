@@ -1,11 +1,7 @@
 import {
     ApplicationCommandData,
-    ButtonInteraction,
-    Collection,
     CommandInteraction,
     CommandInteractionOptionResolver,
-    ModalSubmitInteraction,
-    StringSelectMenuInteraction,
 } from "discord.js";
 import { BotClient } from '../structure/BotClient';
 
@@ -15,29 +11,9 @@ interface CommandProps {
     options: CommandInteractionOptionResolver;
 }
 
-export type ComponentsButton = Collection<
-    string,
-    (interaction: ButtonInteraction) => any
->;
-export type ComponentsSelect = Collection<
-    string,
-    (interaction: StringSelectMenuInteraction) => any
->;
-export type ComponentsModal = Collection<
-    string,
-    (interaction: ModalSubmitInteraction) => any
->;
-
-interface CommandComponents {
-    buttons?: ComponentsButton;
-    selects?: ComponentsSelect;
-    modals?: ComponentsModal;
-}
-
-export type CommandType = ApplicationCommandData &
-    CommandComponents & {
-        run(props: CommandProps): any;
-    };
+export type CommandType = ApplicationCommandData & {
+    run(props: CommandProps): any;
+};
 
 export class Command {
     constructor(options: CommandType) {

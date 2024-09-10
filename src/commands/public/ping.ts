@@ -3,7 +3,7 @@ import { Command } from "../../types/CommandsType";
 
 export default new Command({
     name: "ping",
-    description: "Veja a latência do bot.",
+    description: "Check the bot's latency.",
     type: ApplicationCommandType.ChatInput,
 
     run({ interaction, client }) {
@@ -11,6 +11,7 @@ export default new Command({
 
         interaction.reply({
             content: `**🏓 Pong!**\n**API:** \`\`${wsPing}ms\`\``,
+            ephemeral: true
         });
     },
 });

@@ -13,12 +13,7 @@ import dotenv from "dotenv";
 import fs from "fs";
 import path from "path";
 
-import {
-    CommandType,
-    ComponentsButton,
-    ComponentsModal,
-    ComponentsSelect,
-} from "../types/CommandsType";
+import { CommandType } from "../types/CommandsType";
 import { EventTypeStructs } from "../types/EventsType";
 
 dotenv.config();
@@ -28,9 +23,7 @@ const isValidFile = (fileName: string) =>
 
 export class BotClient extends Client {
     public commands = new Collection<string, CommandType>();
-    public buttons = new Collection<string, ComponentsButton>();
-    public selects = new Collection<string, ComponentsSelect>();
-    public modals = new Collection<string, ComponentsModal>();
+    public events = new Collection<string, EventTypeStructs<keyof ClientEvents>>();
 
     constructor() {
         super({
@@ -60,105 +53,14 @@ export class BotClient extends Client {
         this.application?.commands
             .set(commands)
             .then(() => {
-                console.log('✅ SlashCommands ("/") loaded!'.yellow);
+                console.log('┌───────────────────────────┐\n│ ✅ SlashCommands loaded!   │\n└───────────────────────────┘'.yellow);
+                this.commands.forEach((command) => {
+                    console.log(`Processing command: ${command.name}`);
+                });
             })
             .catch((err) => {
-                console.error(`❌ An error occurred while setting the SlashCommand ("/"): ${err}`.red);
+                console.error(`❌ An error occurred while setting up SlashCommands: ${err}`.red);
             });
-    }
-
-    private registerModules() {
-        const slashCommands: ApplicationCommandDataResolvable[] = [];
-
-        const commandPath = path.join(__dirname, "..", "commands");
-        fs.readdirSync(commandPath).forEach((dir) => {
-            const commandsDir = path.join(commandPath, dir);
-            fs.readdirSync(commandsDir)
-                .filter(isValidFile)
-                .forEach(async (file) => {
-                    const command: CommandType = (await import(path.join(commandsDir, file))).default;
-                    const { name, buttons, selects, modals } = command;
-
-                    if (name) {
-                        this.commands.set(name, command);
-                        slashCommands.push(command);
-
-                        console.log(`Processing command: ${name}`.cyan);
-
-                        if (buttons) {
-                            console.log(`Buttons: ${JSON.stringify(buttons)}`.cyan);
-                            this.handleComponents(buttons, 'button');
-                        }
-                        if (selects) {
-                            console.log(`Selects: ${JSON.stringify(selects)}`.cyan);
-                            this.handleComponents(selects, 'select');
-                        }
-                        if (modals) {
-                            console.log(`Modals: ${JSON.stringify(modals)}`.cyan);
-                            this.handleComponents(modals, 'modal');
-                        }
-                    }
-                });
-        });
-
-        this.on("ready", () => {
-            this.registerCommands(slashCommands);
-            this.setPresence();
-        });
-    }
-
-    private handleComponents(components: any, type: 'button' | 'select' | 'modal') {
-        if (type === 'button') {
-            if (this.isValidComponents(components, 'button')) {
-                components.forEach((run: ComponentsButton, key: string) => this.buttons.set(key, run));
-            } else {
-                console.error('Invalid buttons structure'.red);
-            }
-        } else if (type === 'select') {
-            if (this.isValidComponents(components, 'select')) {
-                components.forEach((run: ComponentsSelect, key: string) => this.selects.set(key, run));
-            } else {
-                console.error('Invalid selects structure'.red);
-            }
-        } else if (type === 'modal') {
-            if (this.isValidComponents(components, 'modal')) {
-                components.forEach((run: ComponentsModal, key: string) => this.modals.set(key, run));
-            } else {
-                console.error('Invalid modals structure'.red);
-            }
-        }
-    }
-
-    private isValidComponents(components: any, type: 'button' | 'select' | 'modal'): boolean {
-        if (type === 'button') {
-            return components instanceof Collection &&
-                [...components.values()].every((value) =>
-                    this.isValidButton(value)
-                );
-        } else if (type === 'select') {
-            return components instanceof Collection &&
-                [...components.values()].every((value) =>
-                    this.isValidSelect(value)
-                );
-        } else if (type === 'modal') {
-            return components instanceof Collection &&
-                [...components.values()].every((value) =>
-                    this.isValidModal(value)
-                );
-        }
-        return false;
-    }
-
-    private isValidButton(button: any): boolean {
-        return typeof button === 'object' && button.hasOwnProperty('key') && typeof button.key === 'string';
-    }
-
-    private isValidSelect(select: any): boolean {
-        return typeof select === 'object' && select.hasOwnProperty('key') && typeof select.key === 'string';
-    }
-
-    private isValidModal(modal: any): boolean {
-        return typeof modal === 'object' && modal.hasOwnProperty('key') && typeof modal.key === 'string';
     }
 
     private registerEvents() {
@@ -173,12 +75,44 @@ export class BotClient extends Client {
 
                     try {
                         if (name) {
+                            this.events.set(name, event);
                             once ? this.once(name, run) : this.on(name, run);
+                            console.log(`Processing event: ${name}`.cyan);
                         }
                     } catch (err) {
-                        console.error(`An error occurred on event: ${name}\n${err}`.red);
+                        console.error(`An error occurred in the event: ${name}\n${err}`.red);
                     }
                 });
+        });
+        console.log('┌───────────────────────────┐\n│ ✅ Events loaded!          │\n└───────────────────────────┘'.yellow);
+        this.events.forEach((event) => {
+            console.log(`Loaded event: ${event.name}`);
+        });
+    }
+
+    private registerModules() {
+        const slashCommands: ApplicationCommandDataResolvable[] = [];
+
+        const commandPath = path.join(__dirname, "..", "commands");
+        fs.readdirSync(commandPath).forEach((dir) => {
+            const commandsDir = path.join(commandPath, dir);
+            fs.readdirSync(commandsDir)
+                .filter(isValidFile)
+                .forEach(async (file) => {
+                    const command: CommandType = (await import(path.join(commandsDir, file))).default;
+                    const { name } = command;
+
+                    if (name) {
+                        this.commands.set(name, command);
+                        slashCommands.push(command);
+                    }
+                });
+        });
+
+        this.on("ready", () => {
+            this.registerCommands(slashCommands);
+            this.setPresence();
+            console.log(`🤖 Bot online! Logged in as ${this.user?.tag}`.green);
         });
     }
 
@@ -187,12 +121,11 @@ export class BotClient extends Client {
             activities: [
                 {
                     url: "https://www.twitch.tv/discord",
-                    name: "DJS: v14.11.0",
+                    name: "Fxsh",
                     type: ActivityType.Streaming,
                 },
             ],
             status: "idle",
         });
     }
-
 }
