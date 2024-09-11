@@ -91,6 +91,8 @@ export default new EventStructs({
         .setCustomId('reasonInput')
         .setLabel("Por que você está abrindo este ticket?")
         .setStyle(TextInputStyle.Paragraph)
+        .setMinLength(5)
+        .setMaxLength(300)
         .setRequired(true);
 
       const firstActionRow = new ActionRowBuilder<TextInputBuilder>().addComponents(motivoInput);
