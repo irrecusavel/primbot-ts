@@ -1,12 +1,20 @@
-import { ActionRowBuilder, ApplicationCommandType, EmbedBuilder, StringSelectMenuBuilder } from "discord.js";
+import { ActionRowBuilder, ApplicationCommandType, EmbedBuilder, StringSelectMenuBuilder, PermissionFlagsBits } from "discord.js";
 import { Command } from "../../types/CommandsType";
 
 export default new Command({
     name: "ticket",
     description: "Use to send the ticket panel.",
     type: ApplicationCommandType.ChatInput,
+    defaultMemberPermissions: PermissionFlagsBits.Administrator,
 
     run({ interaction, client }) {
+        if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
+            return interaction.reply({
+                content: "> Você não tem permissão para usar este comando.",
+                ephemeral: true
+            });
+        }
+
         const embed = new EmbedBuilder()
         .setColor("#bc3bcc")
         .setAuthor({ name: "Fxsh Ticket's", iconURL: "https://i.imgur.com/qDBAsFb.png" })

@@ -18,15 +18,6 @@ async function getNextTicketNumber(): Promise<number> {
   return newCount;
 }
 
-function createLogEmbed(title: string, description: string, color: number, ticketNumber: number, creator: string): EmbedBuilder {
-  return new EmbedBuilder()
-    .setTitle(`Ticket #${ticketNumber} - ${title}`)
-    .setDescription(description)
-    .setColor(color)
-    .setTimestamp()
-    .setFooter({ text: `Ticket aberto por: ${creator}` });
-}
-
 async function sendLog(guild: any, embed: EmbedBuilder) {
   const logChannel = guild.channels.cache.get(LOG_CHANNEL_ID) as TextChannel;
   if (logChannel) {
@@ -78,7 +69,7 @@ export default new EventStructs({
           );
 
         await interaction.reply({
-          content: `Você já tem um ticket aberto: ${existingTicket}. Por favor, utilize o ticket existente ou feche-o antes de abrir um novo.`,
+          content: `Você já tem um ticket aberto: ${existingTicket}.`,
           components: [redirectButton],
           ephemeral: true
         });
@@ -131,6 +122,7 @@ export default new EventStructs({
         name: `・${interaction.user.username}-${ticketNumber}`,
         type: ChannelType.GuildText,
         parent: TICKET_CATEGORY_ID,
+        topic: interaction.user.id,
         permissionOverwrites: [
           {
             id: guild.id,
@@ -138,16 +130,31 @@ export default new EventStructs({
           },
           {
             id: interaction.user.id,
-            allow: ["ViewChannel", "SendMessages", "ReadMessageHistory"],
+            allow: ["ViewChannel", "SendMessages", "ReadMessageHistory", "AttachFiles", "EmbedLinks", "UseExternalEmojis", "UseExternalStickers"],
+            deny: ["ManageChannels", "UseApplicationCommands", "SendPolls", "CreatePrivateThreads", "CreatePublicThreads", "CreateInstantInvite", "AddReactions", "MentionEveryone", "ManageThreads", "ManageWebhooks", "ManageNicknames", "ManageMessages", "UseExternalSounds", "UseEmbeddedActivities", "UseSoundboard"]
           },
+          {
+            id: TICKET_STAFF_ROLES[0],
+            allow: ["ViewChannel", "SendMessages", "ReadMessageHistory", "ManageChannels"],
+          },
+          ...TICKET_STAFF_ROLES.slice(1).map((roleId: string) => ({
+            id: roleId,
+            allow: ["ViewChannel", "SendMessages", "ReadMessageHistory", "ManageChannels"],
+          }))
         ],
       });
 
       const embed = new EmbedBuilder()
-        .setTitle(`Ticket #${ticketNumber} Criado`)
-        .setDescription(`Olá ${interaction.user}, seu ticket foi criado. Um membro da equipe irá atendê-lo em breve.`)
-        .addFields({ name: 'Motivo', value: `*${motivo}*` })
-        .setColor("Green");
+        .setAuthor({ name: `#${ticketNumber}` })
+        .setThumbnail(interaction.user.avatarURL())
+        .setTitle(`Ticket Criado!`)
+        .setFields(
+          { name: 'Aberto por:', value: `${interaction.user} \`\`(${interaction.user.id})\`\`` },
+          { name: 'Motivo do Ticket:', value: `\`\`\`${motivo}\`\`\``}
+        )
+        .setDescription(`Seu ticket foi criado com sucesso!\nUm membro da equipe irá atendê-lo em breve.`)
+        .setColor("#bc3bcc")
+        .setTimestamp();
 
       const closeButton = new ButtonBuilder()
         .setCustomId("close_ticket")
@@ -156,8 +163,8 @@ export default new EventStructs({
 
       const callButton = new ButtonBuilder()
         .setCustomId("create_call")
-        .setLabel("Call")
-        .setStyle(ButtonStyle.Primary);
+        .setLabel("Canal de Voz")
+        .setStyle(ButtonStyle.Success);
 
       const actionRow = new ActionRowBuilder<ButtonBuilder>()
         .addComponents(closeButton, callButton);
@@ -167,20 +174,25 @@ export default new EventStructs({
       const redirectButton = new ActionRowBuilder<ButtonBuilder>()
         .addComponents(
           new ButtonBuilder()
-            .setLabel('Ir para o Ticket')
+            .setLabel('・Ir para o ticket!')
             .setStyle(ButtonStyle.Link)
             .setURL(ticketChannel.url)
         );
 
-      await interaction.reply({ content: `Seu ticket #${ticketNumber} foi criado:`, components: [redirectButton], ephemeral: true });
+      await interaction.reply({ content: `> Seu ticket #${ticketNumber} foi criado:`, components: [redirectButton], ephemeral: true });
 
-      const logEmbed = createLogEmbed(
-        "Ticket Criado",
-        `**Ticket criado por:** *${interaction.user}*\n**Canal:** *${ticketChannel}*\n**Motivo:** *${motivo}*`,
-        0x00FF00,
-        ticketNumber,
-        interaction.user.tag
-      );
+      const logEmbed = new EmbedBuilder()
+      .setAuthor({ name: `#${ticketNumber}`})
+      .setTitle("Ticket Criado!")
+      .setThumbnail(interaction.user.avatarURL())
+      .setFields(
+        { name: "Aberto por:", value: `${interaction.user} \`\`(${interaction.user.id})\`\``},
+        { name: "Canal:", value: `${ticketChannel} \`\`(${ticketChannel.id})\`\``},
+        { name: "Motivo do Ticket:", value: `\`\`\`${motivo}\`\`\``},
+      )
+      .setTimestamp()
+      .setColor("Green");
+
       await sendLog(guild, logEmbed);
     }
 
@@ -190,7 +202,7 @@ export default new EventStructs({
 
       const member = interaction.member as GuildMember;
       if (!TICKET_STAFF_ROLES.some((roleId: string) => member.roles.cache.has(roleId))) {
-        await interaction.reply({ content: "Você não tem permissão para criar uma call.", ephemeral: true });
+        await interaction.reply({ content: "> Você não tem permissão para criar uma call.", ephemeral: true });
         return;
       }
 
@@ -202,7 +214,7 @@ export default new EventStructs({
 
       if (existingCall) {
         const confirmEmbed = new EmbedBuilder()
-          .setTitle("**Call Existente**")
+          .setTitle("Call Existente!")
           .setDescription("Já existe uma call para este ticket. Deseja apagá-la?")
           .setColor("#bc3bcc");
 
@@ -221,6 +233,7 @@ export default new EventStructs({
 
         await interaction.reply({ embeds: [confirmEmbed], components: [actionRow], ephemeral: true });
       } else {
+        const userIdTopic = ticketChannel.topic;
         const voiceChannel = await guild.channels.create({
           name: `・${interaction.user.username}-${ticketNumber}`,
           type: ChannelType.GuildVoice,
@@ -231,29 +244,44 @@ export default new EventStructs({
               deny: ["ViewChannel"],
             },
             {
-              id: interaction.user.id,
-              allow: ["ViewChannel", "Connect", "Speak"],
+              id: userIdTopic ?? guild.id,
+              allow: ["ViewChannel", "Connect", "Speak", "Stream"],
+              deny: ["ManageChannels", "UseSoundboard", "SendPolls", "SendVoiceMessages"]
             },
+            {
+              id: TICKET_STAFF_ROLES[0],
+              allow: ["ViewChannel", "Connect", "Speak", "Stream", "ManageChannels"],
+            },
+            ...TICKET_STAFF_ROLES.slice(1).map((roleId: string) => ({
+              id: roleId,
+              allow: ["ViewChannel", "Connect", "Speak", "Stream", "ManageChannels"],
+            }))
           ],
         });
 
         const joinCallButton = new ActionRowBuilder<ButtonBuilder>()
           .addComponents(
             new ButtonBuilder()
-              .setLabel('Entrar na Call')
+              .setLabel('・Entrar na Call')
               .setStyle(ButtonStyle.Link)
               .setURL(`https://discord.com/channels/${guild.id}/${voiceChannel.id}`)
           );
 
-        await interaction.reply({ content: `Call criada:`, components: [joinCallButton] });
+        await interaction.reply({ content: `> Call criada com sucesso:`, components: [joinCallButton] });
 
-        const logEmbed = createLogEmbed(
-          "Call Criada",
-          `**Call criada por:** *${interaction.user}*\n**Canal:** *${voiceChannel}*`,
-          0x00FF00,
-          parseInt(ticketNumber || '0'),
-          interaction.user.tag
-        );
+        const ticketCreator = await guild.members.fetch(userIdTopic ?? '');
+        const logEmbed = new EmbedBuilder()
+        .setAuthor({ name: `#${ticketNumber}`})
+        .setTitle("Call Criada!")
+        .setThumbnail(interaction.user.avatarURL())
+        .setFields(
+          { name: "Call criada por:", value: `${interaction.user} \`\`(${interaction.user.id})\`\``}, 
+          { name: "Canal", value: `${voiceChannel} \`\`(${voiceChannel.id})\`\``},
+          { name: "Ticket Aberto por:", value: `${ticketCreator} \`\`(${ticketCreator.id})\`\``}
+        )
+        .setTimestamp()
+        .setColor("Green")
+
         await sendLog(guild, logEmbed);
 
         let inactivityTimer: NodeJS.Timeout | null = null;
@@ -266,15 +294,19 @@ export default new EventStructs({
                   const updatedChannel = await guild.channels.fetch(voiceChannel.id);
                   if (updatedChannel) {
                     await updatedChannel.delete();
-                    await ticketChannel.send("A call foi apagada pois ficou 3 minutos inativa sem ninguém.");
+                    await ticketChannel.send("## Inatividade!\n-# A call foi apagada pois ficou 3 minutos inativa sem ninguém.");
 
-                    const logEmbed = createLogEmbed(
-                      "Call Apagada por Inatividade",
-                      `**A call** *${voiceChannel.name}* **foi apagada após 3 minutos de inatividade.**`,
-                      0xFFA500,
-                      parseInt(ticketNumber || '0'),
-                      interaction.user.tag
-                    );
+                    const logEmbed = new EmbedBuilder()
+                    .setAuthor({ name: `#${ticketNumber}`})
+                    .setTitle("Call Apagada por Inatividade!")
+                    .setFields(
+                      { name: "Motivo:", value: `\`\`\`A call foi apagada após 3 minutos de inatividade.\`\`\``},
+                      { name: "Call:", value: `${voiceChannel.name} \`\`(${voiceChannel.id})\`\``}, 
+                      { name: "Ticket Aberto por:", value: `${ticketCreator} \`\`(${ticketCreator.id})\`\``}
+                    )
+                    .setTimestamp()
+                    .setColor("Orange");
+
                     await sendLog(guild, logEmbed);
                   }
                 } catch (error) {
@@ -305,7 +337,7 @@ export default new EventStructs({
 
       const member = interaction.member as GuildMember;
       if (!TICKET_STAFF_ROLES.some((roleId: string) => member.roles.cache.has(roleId))) {
-        await interaction.reply({ content: "Você não tem permissão para apagar a call.", ephemeral: true });
+        await interaction.reply({ content: "> Você não tem permissão para apagar a call.", ephemeral: true });
         return;
       }
 
@@ -318,27 +350,33 @@ export default new EventStructs({
       if (existingCall) {
         try {
           await existingCall.delete();
-          await interaction.reply({ content: "A call foi apagada.", ephemeral: true });
+          await interaction.reply({ content: "> A call foi apagada.", ephemeral: true });
 
-          const logEmbed = createLogEmbed(
-            "Call Apagada Manualmente",
-            `**A call** *${existingCall.name}* **foi apagada por** *${interaction.user}*`,
-            0xFF0000,
-            parseInt(ticketNumber || '0'),
-            interaction.user.tag
-          );
+          const ticketCreator = await guild.members.fetch(ticketChannel.topic ?? '');
+          const logEmbed = new EmbedBuilder()
+          .setAuthor({ name: `#${ticketNumber}`})
+          .setTitle("Call Apagada Manualmente!")
+          .setThumbnail(interaction.user.avatarURL())
+          .setFields(
+            { name: "Apagada por:", value: `${interaction.user} \`\`(${interaction.user.id})\`\``},
+            { name: "Call:", value: `${existingCall.name} \`\`(${existingCall.id})\`\`` },
+            { name: "Ticket Aberto por:", value: `${ticketCreator} \`\`(${ticketCreator.id})\`\``}
+          )
+          .setTimestamp()
+          .setColor("Red")
+
           await sendLog(guild, logEmbed);
         } catch (error) {
           console.error(`Erro ao deletar o canal de voz: ${error}`);
-          await interaction.reply({ content: "Ocorreu um erro ao tentar apagar a call.", ephemeral: true });
+          await interaction.reply({ content: "> Ocorreu um erro ao tentar apagar a call.", ephemeral: true });
         }
       } else {
-        await interaction.reply({ content: "A call não foi encontrada.", ephemeral: true });
+        await interaction.reply({ content: "> A call não foi encontrada.", ephemeral: true });
       }
     }
 
     if (interaction.customId === "cancel_delete_call" && interaction.isButton()) {
-      await interaction.reply({ content: "A ação foi cancelada. A call será mantida.", ephemeral: true });
+      await interaction.reply({ content: "> A ação foi cancelada. A call será mantida.", ephemeral: true });
     }
 
     if (interaction.customId === "close_ticket" && interaction.isButton()) {
@@ -347,7 +385,7 @@ export default new EventStructs({
 
       const member = interaction.member as GuildMember;
       if (!TICKET_STAFF_ROLES.some((roleId: string) => member.roles.cache.has(roleId))) {
-        await interaction.reply({ content: "Você não tem permissão para fechar o ticket.", ephemeral: true });
+        await interaction.reply({ content: "> Você não tem permissão para fechar o ticket.", ephemeral: true });
         return;
       }
 
@@ -355,11 +393,13 @@ export default new EventStructs({
       const ticketNumber = channel.name.split('-').pop();
 
       const embed = new EmbedBuilder()
-        .setTitle(`Ticket #${ticketNumber} Fechado`)
+        .setAuthor({ name: `#${ticketNumber}`})
+        .setTitle(`Ticket Fechado!`)
         .setDescription(`Seu ticket foi fechado.`)
-        .setColor("#bc3bcc");
+        .setTimestamp()
+        .setColor("Red");
 
-      await interaction.reply({ content: "O ticket será fechado em breve.", ephemeral: true });
+      await interaction.reply({ content: "> O ticket será fechado em breve.", ephemeral: true });
       
       await channel.send({ embeds: [embed] });
 
@@ -370,7 +410,7 @@ export default new EventStructs({
       let voiceMembers = 'N/A';
       if (relatedCall) {
         voiceMembers = relatedCall.members.size > 0 ? 
-          relatedCall.members.map(member => `*${member.user.tag}*`).join(', ') : 
+          relatedCall.members.map(member => `${member.user.tag}`).join(', ') : 
           'N/A';
         try {
           await relatedCall.delete();
@@ -381,24 +421,40 @@ export default new EventStructs({
 
       const messages = await channel.messages.fetch({ limit: 35 });
       const participants = new Set<string>();
-      let ticketCreator = '';
+      let ticketCreator = 'Não identificado';
+      
+      const creatorId = channel.topic;
+      
+      if (creatorId) {
+        try {
+          const creatorMember = await guild.members.fetch(creatorId);
+          ticketCreator = `${creatorMember.user.tag} \`\`(${creatorId})\`\``;
+        } catch (error) {
+          console.error(`Erro ao buscar o criador do ticket: ${error}`);
+          ticketCreator = `Não encontrado \`\`(${creatorId})\`\``;
+        }
+      }
+
       messages.forEach(message => {
         if (message.author.bot || message.embeds.length > 0) return;
-        participants.add(`*${message.author.tag}*`);
-        if (!ticketCreator && message.embeds[0]?.title?.includes('Ticket Criado')) {
-          ticketCreator = message.embeds[0].footer?.text.split(': ')[1] || '';
-        }
+        participants.add(`${message.author.tag}`);
       });
 
-      const participantsString = participants.size > 0 ? Array.from(participants).join(', ') : 'N/A';
-
-      const logEmbed = createLogEmbed(
-        "Ticket Fechado",
-        `**Ticket fechado por:** *${interaction.user}*\n**Canal:** *${channel.name}*\n**Participantes:** ${participantsString}\n**Membros na call:** ${voiceMembers}`,
-        0xFF0000,
-        parseInt(ticketNumber || '0'),
-        ticketCreator
-      );
+      const participantsString = participants.size > 0 ? Array.from(participants).join(', ') : 'Nenhum participante';
+      const logEmbed = new EmbedBuilder()
+      .setAuthor({ name: `#${ticketNumber}`})
+      .setTitle("Ticket Fechado!")
+      .setThumbnail(interaction.user.avatarURL())
+      .setFields(
+        { name: "Fechado por", value: `${interaction.user} \`\`(${interaction.user.id})\`\``},
+        { name: "Canal", value: `${channel.name} \`\`(${channel.id})\`\``},
+        { name: "Participantes", value: `\`\`\`${participantsString}\`\`\``},
+        { name: "Membros na call", value: `\`\`\`${voiceMembers}\`\`\``},
+        { name: "Ticket Aberto por", value: ticketCreator }
+      )
+      .setTimestamp()
+      .setColor("Red");
+      
       await sendLog(guild, logEmbed);
 
       setTimeout(async () => {
